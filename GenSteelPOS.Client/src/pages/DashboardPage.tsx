@@ -59,6 +59,8 @@ interface ProductMovement {
   sales: number
 }
 
+type InsightModal = 'topProduct' | 'slowMoving' | 'inventoryRisk' | null
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -71,6 +73,7 @@ export function DashboardPage() {
     from: formatDateInput(defaultFrom),
     to: formatDateInput(today),
   })
+  const [insightModal, setInsightModal] = useState<InsightModal>(null)
 
   const dashboard = useApiData<DashboardData>('/reports/dashboard', {
     totalSalesToday: 0,
@@ -551,7 +554,11 @@ export function DashboardPage() {
                 <span className="badge">This Week</span>
               </div>
               <div className="insight-grid">
-                <div className="insight-card highlight">
+                <button
+                  className="insight-card insight-card-button highlight"
+                  type="button"
+                  onClick={() => setInsightModal('topProduct')}
+                >
                   <span>Top Product This Week</span>
                   <strong>{topProductThisWeek?.productName ?? 'No completed sales yet'}</strong>
                   <p>
@@ -559,8 +566,12 @@ export function DashboardPage() {
                       ? `${topProductThisWeek.quantity} sold / ${formatCurrency(topProductThisWeek.sales)} sales.`
                       : 'Complete sales will appear here automatically.'}
                   </p>
-                </div>
-                <div className="insight-card">
+                </button>
+                <button
+                  className="insight-card insight-card-button"
+                  type="button"
+                  onClick={() => setInsightModal('slowMoving')}
+                >
                   <span>Slow-Moving Items</span>
                   <strong>{slowMovingItems.length}</strong>
                   <p>
@@ -568,8 +579,12 @@ export function DashboardPage() {
                       ? `${slowMovingItems[0].productName} has ${slowMovingItems[0].quantityOnHand} on hand with no sales this week.`
                       : 'No slow-moving inventory detected from the current sample.'}
                   </p>
-                </div>
-                <div className="insight-card">
+                </button>
+                <button
+                  className="insight-card insight-card-button"
+                  type="button"
+                  onClick={() => setInsightModal('inventoryRisk')}
+                >
                   <span>Inventory Risk</span>
                   <strong>{lowStockAlertCount}</strong>
                   <p>
@@ -577,7 +592,7 @@ export function DashboardPage() {
                       ? 'Low or out-of-stock items need review before peak selling hours.'
                       : 'Stock levels are currently stable.'}
                   </p>
-                </div>
+                </button>
               </div>
 
               {slowMovingItems.length > 0 ? (
@@ -685,6 +700,101 @@ export function DashboardPage() {
           )}
         </section>
       </div>
+
+      {insightModal ? (
+        <div className="modal-backdrop">
+          <div className="modal-card insight-modal-card">
+            <div className="split-line">
+              <div>
+                <p className="eyebrow">Dashboard Insight</p>
+                <h3>
+                  {insightModal === 'topProduct'
+                    ? 'Top Products This Week'
+                    : insightModal === 'slowMoving'
+                      ? 'Slow-Moving Items'
+                      : 'Inventory Risk'}
+                </h3>
+              </div>
+              <button className="ghost-button" type="button" onClick={() => setInsightModal(null)}>
+                Close
+              </button>
+            </div>
+
+            {insightModal === 'topProduct' ? (
+              productMovementThisWeek.length > 0 ? (
+                <div className="insight-modal-list">
+                  {productMovementThisWeek.slice(0, 8).map((item, index) => (
+                    <div className="insight-modal-row" key={item.productId}>
+                      <div>
+                        <span className="status-badge in">#{index + 1}</span>
+                        <strong>{item.productName}</strong>
+                        <span>{item.quantity} sold this week</span>
+                      </div>
+                      <strong>{formatCurrency(item.sales)}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-panel">No completed product sales this week.</div>
+              )
+            ) : null}
+
+            {insightModal === 'slowMoving' ? (
+              slowMovingItems.length > 0 ? (
+                <div className="insight-modal-list">
+                  {slowMovingItems.map((item) => (
+                    <div className="insight-modal-row" key={item.productId}>
+                      <div>
+                        <strong>{item.productName}</strong>
+                        <span>{item.sku} / {item.location || 'Main rack'}</span>
+                      </div>
+                      <span className="status-badge low">{item.quantityOnHand} on hand</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-panel">No slow-moving inventory detected this week.</div>
+              )
+            ) : null}
+
+            {insightModal === 'inventoryRisk' ? (
+              lowStockItems.length > 0 ? (
+                <div className="insight-modal-list">
+                  {lowStockItems.map((item) => (
+                    <div className="insight-modal-row" key={item.productId}>
+                      <div>
+                        <strong>{item.productName}</strong>
+                        <span>{item.sku} / {item.location || 'Main rack'}</span>
+                      </div>
+                      <span className={item.quantityOnHand <= 0 ? 'status-badge out' : 'status-badge low'}>
+                        {item.quantityOnHand <= 0 ? 'Out' : `${item.quantityOnHand} left`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-panel">No low-stock inventory risk detected.</div>
+              )
+            ) : null}
+
+            <div className="action-row">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => {
+                  setInsightModal(null)
+                  navigate('/inventory')
+                }}
+              >
+                Open Inventory
+              </button>
+              <button className="ghost-button" type="button" onClick={() => setInsightModal(null)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PageFrame>
   )
 }

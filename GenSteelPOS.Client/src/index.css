@@ -3160,6 +3160,25 @@ tbody tr:hover {
   box-shadow: var(--shadow-soft);
 }
 
+.insight-card-button {
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.insight-card-button:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.insight-card-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
 .insight-card.highlight {
   border-color: rgba(37, 99, 235, 0.28);
   background: linear-gradient(180deg, #eff6ff, #ffffff);
@@ -3199,6 +3218,48 @@ tbody tr:hover {
 }
 
 .slow-moving-row span:not(.status-badge) {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.insight-modal-card {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 760px);
+}
+
+.insight-modal-list {
+  display: grid;
+  gap: 8px;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid rgba(31, 95, 139, 0.08);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.insight-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid rgba(31, 95, 139, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.insight-modal-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.insight-modal-row strong {
+  color: #0f172a;
+}
+
+.insight-modal-row span:not(.status-badge) {
   color: var(--ink-soft);
   font-size: 0.86rem;
 }
