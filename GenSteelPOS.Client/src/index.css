@@ -2046,6 +2046,8 @@ button:disabled {
 
 /* ERP operations theme */
 :root {
+  font-family:
+    Inter, "Segoe UI Variable Text", "Segoe UI", "Trebuchet MS", sans-serif;
   color: #1f2937;
   background: #f8fafc;
   font-size: 18px;
@@ -2133,7 +2135,7 @@ textarea,
 .panel h4,
 .login-card h2,
 .login-hero h1 {
-  font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-family: Inter, "Segoe UI Variable Text", "Segoe UI", sans-serif;
   letter-spacing: 0;
 }
 
@@ -2334,8 +2336,9 @@ textarea,
 }
 
 .page-hero h3 {
-  font-size: 1.45rem;
-  font-weight: 700;
+  font-size: 1.32rem;
+  font-weight: 800;
+  line-height: 1.18;
 }
 
 .page-copy {
@@ -2378,16 +2381,23 @@ textarea,
 .stat-card {
   padding: 14px 16px;
   border-left: 4px solid rgba(59, 130, 246, 0.55);
+  min-height: 78px;
+  align-content: center;
 }
 
 .stat-card span {
-  font-size: 0.82rem;
+  color: var(--ink-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
 }
 
 .stat-card strong {
-  font-size: 1.35rem;
+  color: #0f172a;
+  font-size: 1.28rem;
+  font-weight: 750;
+  line-height: 1.08;
 }
 
 .stat-card.alert strong,
@@ -2930,12 +2940,44 @@ tbody tr:hover {
 }
 
 .dashboard-kpi-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: minmax(300px, 1.45fr) repeat(3, minmax(190px, 1fr));
+  align-items: stretch;
 }
 
 .dashboard-kpi-grid .stat-card {
-  min-height: 86px;
-  align-content: center;
+  min-height: 82px;
+}
+
+.dashboard-kpi-grid .stat-card:first-child {
+  min-height: 112px;
+  padding: 20px 22px;
+  border-left-width: 6px;
+  box-shadow: var(--shadow);
+}
+
+.dashboard-kpi-grid .stat-card:first-child span {
+  color: var(--primary);
+  font-size: 0.78rem;
+}
+
+.dashboard-kpi-grid .stat-card:first-child strong {
+  font-size: 1.55rem;
+  font-weight: 800;
+}
+
+.dashboard-kpi-grid .stat-card:nth-child(2),
+.dashboard-kpi-grid .stat-card:nth-child(3) {
+  min-height: 96px;
+}
+
+.dashboard-kpi-grid .stat-card.alert {
+  min-height: 74px;
+  padding-block: 12px;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08);
+}
+
+.dashboard-kpi-grid .stat-card.alert strong {
+  font-size: 1.18rem;
 }
 
 .dashboard-main-grid {
@@ -3672,6 +3714,14 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-kpi-grid .stat-card:first-child {
+    grid-column: 1 / -1;
+  }
+
   .sidebar {
     padding: 12px;
   }
@@ -3725,6 +3775,22 @@ tbody tr:hover {
   .workspace-header {
     margin: 0 -14px 14px;
     padding: 10px 14px;
+  }
+
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-kpi-grid .stat-card:first-child,
+  .dashboard-kpi-grid .stat-card:nth-child(2),
+  .dashboard-kpi-grid .stat-card:nth-child(3),
+  .dashboard-kpi-grid .stat-card.alert {
+    min-height: 78px;
+    padding: 14px 16px;
+  }
+
+  .dashboard-kpi-grid .stat-card:first-child strong {
+    font-size: 1.32rem;
   }
 
   .table-panel::after {
