@@ -115,6 +115,8 @@ internal static class MappingExtensions
             Id = entity.Id,
             SaleNumber = entity.SaleNumber,
             CashierName = entity.Cashier?.FullName ?? string.Empty,
+            ProcessedByName = entity.Cashier?.FullName ?? string.Empty,
+            ProcessedByRole = FormatSalesProcessorRole(entity.Cashier?.Role?.Name),
             CustomerName = entity.CustomerName,
             CustomerAddress = entity.CustomerAddress,
             CustomerTin = entity.CustomerTin,
@@ -152,6 +154,9 @@ internal static class MappingExtensions
 
     private static decimal ResolveCostPrice(SaleItem item) =>
         item.CostPriceSnapshot > 0 ? item.CostPriceSnapshot : item.Product?.CostPrice ?? 0m;
+
+    private static string FormatSalesProcessorRole(string? roleName) =>
+        roleName == AppRoles.SuperAdmin ? "Owner" : "Cashier";
 
     public static SalesOrderDto ToDto(this SalesOrder entity) => new()
     {

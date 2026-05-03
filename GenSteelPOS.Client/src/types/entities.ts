@@ -123,6 +123,8 @@ export interface Sale {
   id: number
   saleNumber: string
   cashierName: string
+  processedByName: string
+  processedByRole: string
   customerName: string
   customerAddress: string
   customerTin: string
@@ -289,19 +291,35 @@ export interface DashboardData {
   totalSalesToday: number
   totalReturnsToday: number
   netSalesToday: number
+  cashierSalesToday: number
+  cashierReturnsToday: number
+  cashierNetSalesToday: number
+  ownerSalesToday: number
+  ownerReturnsToday: number
+  ownerNetSalesToday: number
   totalTransactionsToday: number
+  cashierTransactionsToday: number
+  ownerTransactionsToday: number
   lowStockCount: number
   activeProductsCount: number
   totalInventoryValue: number
   totalSalesThisMonth: number
   totalReturnsThisMonth: number
   netSalesThisMonth: number
+  cashierSalesThisMonth: number
+  ownerSalesThisMonth: number
 }
 
 export interface SalesSummary {
   grossSales: number
   returnsAmount: number
   netSales: number
+  cashierSales: number
+  cashierReturns: number
+  cashierNetSales: number
+  ownerSales: number
+  ownerReturns: number
+  ownerNetSales: number
   totalDiscount: number
   totalTax: number
   netSalesExcludingTax: number
@@ -336,6 +354,8 @@ export interface SalesTransactionReportRow {
   saleNumber: string
   createdAtUtc: string
   cashierName: string
+  processedByName: string
+  processedByRole: string
   paymentMethods: string
   totalAmount: number
   returnsAmount: number

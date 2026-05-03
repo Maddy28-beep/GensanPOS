@@ -11,7 +11,6 @@ import type {
   DashboardData,
   InventoryAdjustmentRequest,
   InventoryListResponse,
-  InventoryValueReportRow,
   Sale,
   SaleActionRequest,
 } from '../types/entities'
@@ -79,13 +78,23 @@ export function DashboardPage() {
     totalSalesToday: 0,
     totalReturnsToday: 0,
     netSalesToday: 0,
+    cashierSalesToday: 0,
+    cashierReturnsToday: 0,
+    cashierNetSalesToday: 0,
+    ownerSalesToday: 0,
+    ownerReturnsToday: 0,
+    ownerNetSalesToday: 0,
     totalTransactionsToday: 0,
+    cashierTransactionsToday: 0,
+    ownerTransactionsToday: 0,
     lowStockCount: 0,
     activeProductsCount: 0,
     totalInventoryValue: 0,
     totalSalesThisMonth: 0,
     totalReturnsThisMonth: 0,
     netSalesThisMonth: 0,
+    cashierSalesThisMonth: 0,
+    ownerSalesThisMonth: 0,
   })
   const inventory = useApiData<InventoryListResponse>(
     '/inventory?page=1&pageSize=50&sortBy=quantity&sortOrder=asc',
@@ -108,11 +117,6 @@ export function DashboardPage() {
   const sales = useApiData<Sale[]>('/sales', [])
   const actionRequests = useApiData<SaleActionRequest[]>('/sale-action-requests', [])
   const inventoryRequests = useApiData<InventoryAdjustmentRequest[]>('/inventory-adjustment-requests', [])
-  const inventoryValue = useApiData<InventoryValueReportRow[]>(
-    isSuperAdmin ? '/reports/inventory/value' : '',
-    [],
-  )
-
   const pendingActionRequests = useMemo(
     () =>
       actionRequests.data.filter((request) => request.status === 'Pending').length +
@@ -123,11 +127,6 @@ export function DashboardPage() {
   const todayNetSales = dashboard.data.netSalesToday
   const lowStockAlertCount =
     inventory.data.summary.lowStockCount + inventory.data.summary.outOfStockCount
-  const liveInventoryValue = inventoryValue.data.reduce(
-    (sum, item) => sum + item.inventoryValue,
-    0,
-  )
-
   const lowStockItems = useMemo(
     () =>
       inventory.data.items
@@ -340,26 +339,25 @@ export function DashboardPage() {
         {isSuperAdmin ? (
           <>
             <StatCard
-              label="Sales Today"
+              label="Overall Store Sales"
               value={formatCurrency(todayGrossSales)}
             />
             <StatCard
-              label="Sales This Month"
-              value={formatCurrency(dashboard.data.totalSalesThisMonth)}
+              label="Cashier Sales"
+              value={formatCurrency(dashboard.data.cashierSalesToday)}
             />
             <StatCard
-              label="Inventory Value"
-              value={formatCurrency(liveInventoryValue || dashboard.data.totalInventoryValue)}
+              label="Owner Personal Sales"
+              value={formatCurrency(dashboard.data.ownerSalesToday)}
             />
             <StatCard
-              label="Low Stock"
-              value={String(lowStockAlertCount || dashboard.data.lowStockCount)}
-              tone={lowStockAlertCount > 0 || dashboard.data.lowStockCount > 0 ? 'alert' : 'default'}
+              label="Returns / Void"
+              value={formatCurrency(dashboard.data.totalReturnsToday)}
+              tone={dashboard.data.totalReturnsToday > 0 ? 'alert' : 'default'}
             />
             <StatCard
-              label="Pending Approvals"
-              value={String(pendingActionRequests)}
-              tone={pendingActionRequests > 0 ? 'alert' : 'default'}
+              label="Net Sales"
+              value={formatCurrency(todayNetSales)}
             />
           </>
         ) : (

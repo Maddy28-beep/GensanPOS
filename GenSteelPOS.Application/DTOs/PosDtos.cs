@@ -79,6 +79,8 @@ public sealed class SaleDto
     public int Id { get; set; }
     public string SaleNumber { get; set; } = string.Empty;
     public string CashierName { get; set; } = string.Empty;
+    public string ProcessedByName { get; set; } = string.Empty;
+    public string ProcessedByRole { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerAddress { get; set; } = string.Empty;
     public string CustomerTin { get; set; } = string.Empty;

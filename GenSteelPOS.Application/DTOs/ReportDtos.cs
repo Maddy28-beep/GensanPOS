@@ -5,13 +5,23 @@ public sealed class DashboardReportDto
     public decimal TotalSalesToday { get; set; }
     public decimal TotalReturnsToday { get; set; }
     public decimal NetSalesToday { get; set; }
+    public decimal CashierSalesToday { get; set; }
+    public decimal CashierReturnsToday { get; set; }
+    public decimal CashierNetSalesToday { get; set; }
+    public decimal OwnerSalesToday { get; set; }
+    public decimal OwnerReturnsToday { get; set; }
+    public decimal OwnerNetSalesToday { get; set; }
     public int TotalTransactionsToday { get; set; }
+    public int CashierTransactionsToday { get; set; }
+    public int OwnerTransactionsToday { get; set; }
     public int LowStockCount { get; set; }
     public int ActiveProductsCount { get; set; }
     public decimal TotalInventoryValue { get; set; }
     public decimal TotalSalesThisMonth { get; set; }
     public decimal TotalReturnsThisMonth { get; set; }
     public decimal NetSalesThisMonth { get; set; }
+    public decimal CashierSalesThisMonth { get; set; }
+    public decimal OwnerSalesThisMonth { get; set; }
 }
 
 public sealed class SalesSummaryDto
@@ -19,6 +29,12 @@ public sealed class SalesSummaryDto
     public decimal GrossSales { get; set; }
     public decimal ReturnsAmount { get; set; }
     public decimal NetSales { get; set; }
+    public decimal CashierSales { get; set; }
+    public decimal CashierReturns { get; set; }
+    public decimal CashierNetSales { get; set; }
+    public decimal OwnerSales { get; set; }
+    public decimal OwnerReturns { get; set; }
+    public decimal OwnerNetSales { get; set; }
     public decimal TotalDiscount { get; set; }
     public decimal TotalTax { get; set; }
     public decimal NetSalesExcludingTax { get; set; }
@@ -56,6 +72,8 @@ public sealed class SalesTransactionReportRowDto
     public string SaleNumber { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; }
     public string CashierName { get; set; } = string.Empty;
+    public string ProcessedByName { get; set; } = string.Empty;
+    public string ProcessedByRole { get; set; } = string.Empty;
     public string PaymentMethods { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public decimal ReturnsAmount { get; set; }

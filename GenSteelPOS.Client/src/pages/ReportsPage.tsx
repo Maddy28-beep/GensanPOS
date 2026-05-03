@@ -105,6 +105,12 @@ export function ReportsPage() {
       grossSales: 0,
       returnsAmount: 0,
       netSales: 0,
+      cashierSales: 0,
+      cashierReturns: 0,
+      cashierNetSales: 0,
+      ownerSales: 0,
+      ownerReturns: 0,
+      ownerNetSales: 0,
       totalDiscount: 0,
       totalTax: 0,
       netSalesExcludingTax: 0,
@@ -221,7 +227,13 @@ export function ReportsPage() {
   const exportSalesExcel = () => {
     const summaryRows = [
       ['Sales Date Range', reportRangeLabel],
-      ['Gross Sales', money(data.grossSales)],
+      [isSuperAdmin ? 'Overall Store Sales' : 'Gross Sales', money(data.grossSales)],
+      ...(isSuperAdmin
+        ? [
+            ['Cashier Sales', money(data.cashierSales)],
+            ['Owner Sales', money(data.ownerSales)],
+          ]
+        : []),
       ['Returns', money(data.returnsAmount)],
       ['Net Sales', money(data.netSales)],
       ['Profit', money(productProfitTotal)],
@@ -260,6 +272,7 @@ export function ReportsPage() {
               <col style="width: 190px" />
               <col style="width: 180px" />
               <col style="width: 170px" />
+              <col style="width: 120px" />
               <col style="width: 180px" />
               <col style="width: 140px" />
               <col style="width: 140px" />
@@ -267,11 +280,12 @@ export function ReportsPage() {
               <col style="width: 140px" />
               <col style="width: 120px" />
             </colgroup>
-            <tr><td class="section" colspan="9">SALES TRANSACTIONS</td></tr>
+            <tr><td class="section" colspan="10">SALES TRANSACTIONS</td></tr>
             <tr>
               <th>Date/Time</th>
               <th>Sale No.</th>
-              <th>Cashier/Owner</th>
+              <th>Processed By</th>
+              <th>Role</th>
               <th>Mode of Payment</th>
               <th>Total</th>
               <th>Returns</th>
@@ -285,7 +299,8 @@ export function ReportsPage() {
                   <tr>
                     <td>${escapeHtml(formatDateTime(row.createdAtUtc))}</td>
                     <td>${escapeHtml(row.saleNumber)}</td>
-                    <td>${escapeHtml(row.cashierName)}</td>
+                    <td>${escapeHtml(row.processedByName || row.cashierName)}</td>
+                    <td>${escapeHtml(row.processedByRole || 'Cashier')}</td>
                     <td>${escapeHtml(row.paymentMethods || '-')}</td>
                     <td class="number">${money(row.totalAmount)}</td>
                     <td class="number">${money(row.returnsAmount)}</td>
@@ -544,7 +559,13 @@ export function ReportsPage() {
         </div>
 
         <div className="stats-grid compact-stats report-kpi-grid sales-summary-cards">
-          <StatCard label="Gross Sales" value={formatCurrency(data.grossSales)} />
+          <StatCard label={isSuperAdmin ? 'Overall Store Sales' : 'Gross Sales'} value={formatCurrency(data.grossSales)} />
+          {isSuperAdmin ? (
+            <>
+              <StatCard label="Cashier Sales" value={formatCurrency(data.cashierSales)} />
+              <StatCard label="Owner Sales" value={formatCurrency(data.ownerSales)} />
+            </>
+          ) : null}
           <StatCard label="Returns" value={formatCurrency(data.returnsAmount)} />
           <StatCard label="Net Sales" value={formatCurrency(data.netSales)} />
           <StatCard label="Profit" value={formatCurrency(productProfitTotal)} />
@@ -573,7 +594,8 @@ export function ReportsPage() {
                 <tr>
                   <th>Date/Time</th>
                   <th>Sale No.</th>
-                  <th>Cashier/Owner</th>
+                  <th>Processed By</th>
+                  <th>Role</th>
                   <th>Mode of Payment</th>
                   <th>Total</th>
                   <th>Returns</th>
@@ -589,7 +611,12 @@ export function ReportsPage() {
                     <td>
                       <strong>{row.saleNumber}</strong>
                     </td>
-                    <td>{row.cashierName}</td>
+                    <td>{row.processedByName || row.cashierName}</td>
+                    <td>
+                      <span className={row.processedByRole === 'Owner' ? 'status-badge in' : 'status-badge low'}>
+                        {row.processedByRole || 'Cashier'}
+                      </span>
+                    </td>
                     <td>{row.paymentMethods || '-'}</td>
                     <td>{formatCurrency(row.totalAmount)}</td>
                     <td>{formatCurrency(row.returnsAmount)}</td>

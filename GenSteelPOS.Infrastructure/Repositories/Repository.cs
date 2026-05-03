@@ -221,7 +221,7 @@ public sealed class SaleRepository(AppDbContext context) : Repository<Sale>(cont
 {
     public override async Task<List<Sale>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await Context.Sales
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product).ThenInclude(x => x!.Inventory)
             .Include(x => x.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.Payments)
@@ -231,7 +231,7 @@ public sealed class SaleRepository(AppDbContext context) : Repository<Sale>(cont
 
     public async Task<List<Sale>> GetForCashierOnDateAsync(int cashierId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default) =>
         await Context.Sales
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product).ThenInclude(x => x!.Inventory)
             .Include(x => x.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.Payments)
@@ -242,7 +242,7 @@ public sealed class SaleRepository(AppDbContext context) : Repository<Sale>(cont
 
     public async Task<Sale?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default) =>
         await Context.Sales
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product).ThenInclude(x => x!.Inventory)
             .Include(x => x.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.Payments)
@@ -252,7 +252,7 @@ public sealed class SaleRepository(AppDbContext context) : Repository<Sale>(cont
 
     public async Task<Sale?> GetForCashierByIdAsync(int id, int cashierId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default) =>
         await Context.Sales
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product).ThenInclude(x => x!.Inventory)
             .Include(x => x.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.Payments)
@@ -294,7 +294,7 @@ public sealed class SaleActionRequestRepository(AppDbContext context) : Reposito
 {
     public async Task<List<SaleActionRequest>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default) =>
         await Context.SaleActionRequests
-            .Include(x => x.Sale).ThenInclude(x => x!.Cashier)
+            .Include(x => x.Sale).ThenInclude(x => x!.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.Sale).ThenInclude(x => x!.SaleItems).ThenInclude(x => x.Product)
             .Include(x => x.Sale).ThenInclude(x => x!.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.RequestedByUser)
@@ -304,7 +304,7 @@ public sealed class SaleActionRequestRepository(AppDbContext context) : Reposito
 
     public async Task<SaleActionRequest?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default) =>
         await Context.SaleActionRequests
-            .Include(x => x.Sale).ThenInclude(x => x!.Cashier)
+            .Include(x => x.Sale).ThenInclude(x => x!.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.Sale).ThenInclude(x => x!.SaleItems).ThenInclude(x => x.Product)
             .Include(x => x.Sale).ThenInclude(x => x!.SaleItems).ThenInclude(x => x.ReturnItems)
             .Include(x => x.RequestedByUser)

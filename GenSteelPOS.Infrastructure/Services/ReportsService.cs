@@ -19,8 +19,15 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
     {
         var today = DateTime.UtcNow.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
+        var currentUserId = currentUserContext.UserId;
         var salesQuery = ApplySaleVisibility(context.Sales.AsQueryable());
         var returnsQuery = ApplyReturnVisibility(context.Returns.AsQueryable());
+        var validSalesQuery = salesQuery
+            .Where(x => x.Status != SaleStatus.Cancelled && x.Status != SaleStatus.Voided);
+        var todaySalesQuery = validSalesQuery.Where(x => x.CreatedAtUtc >= today);
+        var monthSalesQuery = validSalesQuery.Where(x => x.CreatedAtUtc >= monthStart);
+        var todayReturnsQuery = returnsQuery.Where(x => x.CreatedAtUtc >= today);
+        var monthReturnsQuery = returnsQuery.Where(x => x.CreatedAtUtc >= monthStart);
         var grossToday = await salesQuery
             .Where(x => x.Status != SaleStatus.Cancelled && x.Status != SaleStatus.Voided && x.CreatedAtUtc >= today)
             .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0;
@@ -33,13 +40,47 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
         var returnsThisMonth = await returnsQuery
             .Where(x => x.CreatedAtUtc >= monthStart)
             .SumAsync(x => (decimal?)x.TotalReturnAmount, cancellationToken) ?? 0;
+        var cashierSalesToday = await todaySalesQuery
+            .Where(x => x.Cashier != null && x.Cashier.Role != null && x.Cashier.Role.Name != AppRoles.SuperAdmin)
+            .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0;
+        var cashierReturnsToday = await todayReturnsQuery
+            .Where(x => x.Sale != null && x.Sale.Cashier != null && x.Sale.Cashier.Role != null && x.Sale.Cashier.Role.Name != AppRoles.SuperAdmin)
+            .SumAsync(x => (decimal?)x.TotalReturnAmount, cancellationToken) ?? 0;
+        var ownerSalesToday = currentUserId.HasValue
+            ? await todaySalesQuery
+                .Where(x => x.CashierId == currentUserId.Value)
+                .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0
+            : 0;
+        var ownerReturnsToday = currentUserId.HasValue
+            ? await todayReturnsQuery
+                .Where(x => x.Sale != null && x.Sale.CashierId == currentUserId.Value)
+                .SumAsync(x => (decimal?)x.TotalReturnAmount, cancellationToken) ?? 0
+            : 0;
+        var cashierSalesThisMonth = await monthSalesQuery
+            .Where(x => x.Cashier != null && x.Cashier.Role != null && x.Cashier.Role.Name != AppRoles.SuperAdmin)
+            .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0;
+        var ownerSalesThisMonth = currentUserId.HasValue
+            ? await monthSalesQuery
+                .Where(x => x.CashierId == currentUserId.Value)
+                .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0
+            : 0;
 
         return new DashboardReportDto
         {
             TotalSalesToday = grossToday,
             TotalReturnsToday = returnsToday,
             NetSalesToday = grossToday - returnsToday,
-            TotalTransactionsToday = await salesQuery.CountAsync(x => x.Status != SaleStatus.Cancelled && x.Status != SaleStatus.Voided && x.CreatedAtUtc >= today, cancellationToken),
+            CashierSalesToday = cashierSalesToday,
+            CashierReturnsToday = cashierReturnsToday,
+            CashierNetSalesToday = cashierSalesToday - cashierReturnsToday,
+            OwnerSalesToday = ownerSalesToday,
+            OwnerReturnsToday = ownerReturnsToday,
+            OwnerNetSalesToday = ownerSalesToday - ownerReturnsToday,
+            TotalTransactionsToday = await todaySalesQuery.CountAsync(cancellationToken),
+            CashierTransactionsToday = await todaySalesQuery.CountAsync(x => x.Cashier != null && x.Cashier.Role != null && x.Cashier.Role.Name != AppRoles.SuperAdmin, cancellationToken),
+            OwnerTransactionsToday = currentUserId.HasValue
+                ? await todaySalesQuery.CountAsync(x => x.CashierId == currentUserId.Value, cancellationToken)
+                : 0,
             LowStockCount = await context.Products.CountAsync(x => x.IsActive && x.Quantity > 0 && x.Quantity <= InventoryRules.LowStockThreshold, cancellationToken),
             ActiveProductsCount = await context.Products.CountAsync(x => x.IsActive, cancellationToken),
             TotalInventoryValue = currentUserContext.Role == AppRoles.SuperAdmin
@@ -47,18 +88,22 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
                 : 0,
             TotalSalesThisMonth = grossThisMonth,
             TotalReturnsThisMonth = returnsThisMonth,
-            NetSalesThisMonth = grossThisMonth - returnsThisMonth
+            NetSalesThisMonth = grossThisMonth - returnsThisMonth,
+            CashierSalesThisMonth = cashierSalesThisMonth,
+            OwnerSalesThisMonth = ownerSalesThisMonth
         };
     }
 
     public async Task<SalesSummaryDto> GetSalesSummaryAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken = default)
     {
         var query = ApplySaleVisibility(context.Sales)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product)
             .Include(x => x.SaleItems).ThenInclude(x => x.ReturnItems)
             .Where(x => x.Status != SaleStatus.Cancelled && x.Status != SaleStatus.Voided)
             .AsQueryable();
         var returnsQuery = ApplyReturnVisibility(context.Returns)
+            .Include(x => x.Sale).ThenInclude(x => x!.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.Items).ThenInclude(x => x.SaleItem).ThenInclude(x => x!.Product)
             .AsQueryable();
 
@@ -78,6 +123,19 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
         var grossSales = sales.Sum(x => x.TotalAmount);
         var returns = await returnsQuery.ToListAsync(cancellationToken);
         var returnsAmount = returns.Sum(x => x.TotalReturnAmount);
+        var ownerUserId = currentUserContext.UserId;
+        var cashierSales = sales
+            .Where(x => x.Cashier?.Role?.Name != AppRoles.SuperAdmin)
+            .Sum(x => x.TotalAmount);
+        var cashierReturns = returns
+            .Where(x => x.Sale?.Cashier?.Role?.Name != AppRoles.SuperAdmin)
+            .Sum(x => x.TotalReturnAmount);
+        var ownerSales = ownerUserId.HasValue
+            ? sales.Where(x => x.CashierId == ownerUserId.Value).Sum(x => x.TotalAmount)
+            : 0;
+        var ownerReturns = ownerUserId.HasValue
+            ? returns.Where(x => x.Sale?.CashierId == ownerUserId.Value).Sum(x => x.TotalReturnAmount)
+            : 0;
         var totalTax = sales.Sum(x => x.TaxAmount);
         var netSales = grossSales - returnsAmount;
         var netSalesExcludingTax = netSales - totalTax;
@@ -89,6 +147,12 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
             GrossSales = grossSales,
             ReturnsAmount = returnsAmount,
             NetSales = netSales,
+            CashierSales = cashierSales,
+            CashierReturns = cashierReturns,
+            CashierNetSales = cashierSales - cashierReturns,
+            OwnerSales = ownerSales,
+            OwnerReturns = ownerReturns,
+            OwnerNetSales = ownerSales - ownerReturns,
             TotalDiscount = sales.Sum(x => x.DiscountAmount),
             TotalTax = totalTax,
             NetSalesExcludingTax = netSalesExcludingTax,
@@ -216,7 +280,7 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
     public async Task<List<SalesTransactionReportRowDto>> GetSalesTransactionsAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken = default)
     {
         var query = ApplySaleVisibility(context.Sales)
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.Payments)
             .Include(x => x.Returns)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product)
@@ -247,6 +311,8 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
                 SaleNumber = sale.SaleNumber,
                 CreatedAtUtc = sale.CreatedAtUtc,
                 CashierName = sale.Cashier?.FullName ?? "System",
+                ProcessedByName = sale.Cashier?.FullName ?? "System",
+                ProcessedByRole = FormatSalesProcessorRole(sale.Cashier?.Role?.Name),
                 PaymentMethods = string.Join(", ", sale.Payments.Select(x => FormatPaymentMethod(x.PaymentMethod)).Distinct()),
                 TotalAmount = sale.TotalAmount,
                 ReturnsAmount = returnsAmount,
@@ -710,7 +776,7 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
     private IQueryable<Sale> BuildSalesReportQuery(SalesReportPdfRequest request)
     {
         var query = ApplySaleVisibility(context.Sales)
-            .Include(x => x.Cashier)
+            .Include(x => x.Cashier).ThenInclude(x => x!.Role)
             .Include(x => x.Payments)
             .Include(x => x.Returns)
             .Include(x => x.SaleItems).ThenInclude(x => x.Product).ThenInclude(x => x!.Category)
@@ -889,6 +955,9 @@ public sealed class ReportsService(AppDbContext context, ICurrentUserContext cur
         PaymentMethod.Credit => "Charged / Utang",
         _ => method.ToString()
     };
+
+    private static string FormatSalesProcessorRole(string? roleName) =>
+        roleName == AppRoles.SuperAdmin ? "Owner" : "Cashier";
 
     private static TEnum? ParseEnumFilter<TEnum>(string value)
         where TEnum : struct, Enum =>
