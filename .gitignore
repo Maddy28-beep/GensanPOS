@@ -1,0 +1,38 @@
+# Visual Studio / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.nupkg
+
+# Node / Vite
+node_modules/
+dist/
+build/
+.vite/
+
+# Logs
+*.log
+*.err.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local secrets and environment config
+.env
+.env.*
+GenSteelPOS.Api/appsettings.json
+GenSteelPOS.Api/appsettings.Production.json
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
