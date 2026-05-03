@@ -23,7 +23,41 @@ function formatDateInput(date: Date) {
   return `${year}-${month}-${day}`
 }
 
+function summarizeProductMovement(sales: Sale[]): ProductMovement[] {
+  const productMap = new Map<number, ProductMovement>()
+
+  for (const sale of sales) {
+    for (const item of sale.items) {
+      const current = productMap.get(item.productId) ?? {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: 0,
+        sales: 0,
+      }
+
+      current.quantity += item.quantity
+      current.sales += item.lineTotal
+      productMap.set(item.productId, current)
+    }
+  }
+
+  return [...productMap.values()].sort((left, right) => {
+    if (right.quantity !== left.quantity) {
+      return right.quantity - left.quantity
+    }
+
+    return right.sales - left.sales
+  })
+}
+
 const LOW_STOCK_THRESHOLD = 15
+
+interface ProductMovement {
+  productId: number
+  productName: string
+  quantity: number
+  sales: number
+}
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -100,6 +134,104 @@ export function DashboardPage() {
     [inventory.data.items],
   )
 
+  const todayStart = useMemo(() => new Date(`${formatDateInput(today)}T00:00:00`), [today])
+  const weekStart = useMemo(() => {
+    const start = new Date(todayStart)
+    start.setDate(todayStart.getDate() - 6)
+    return start
+  }, [todayStart])
+
+  const completedSalesToday = useMemo(
+    () =>
+      sales.data.filter((sale) => {
+        if (sale.status !== 'Completed') {
+          return false
+        }
+
+        const created = new Date(sale.createdAtUtc)
+        return created >= todayStart
+      }),
+    [sales.data, todayStart],
+  )
+
+  const completedSalesThisWeek = useMemo(
+    () =>
+      sales.data.filter((sale) => {
+        if (sale.status !== 'Completed') {
+          return false
+        }
+
+        const created = new Date(sale.createdAtUtc)
+        return created >= weekStart
+      }),
+    [sales.data, weekStart],
+  )
+
+  const productMovementToday = useMemo(
+    () => summarizeProductMovement(completedSalesToday),
+    [completedSalesToday],
+  )
+  const productMovementThisWeek = useMemo(
+    () => summarizeProductMovement(completedSalesThisWeek),
+    [completedSalesThisWeek],
+  )
+  const topProductToday = productMovementToday[0] ?? null
+  const topProductThisWeek = productMovementThisWeek[0] ?? null
+  const soldProductIdsThisWeek = useMemo(
+    () => new Set(productMovementThisWeek.map((item) => item.productId)),
+    [productMovementThisWeek],
+  )
+  const slowMovingItems = useMemo(
+    () =>
+      inventory.data.items
+        .filter((item) => item.quantityOnHand > LOW_STOCK_THRESHOLD && !soldProductIdsThisWeek.has(item.productId))
+        .sort((left, right) => right.quantityOnHand - left.quantityOnHand)
+        .slice(0, 4),
+    [inventory.data.items, soldProductIdsThisWeek],
+  )
+
+  const smartAlerts = useMemo(() => {
+    const alerts: { tone: 'danger' | 'warning' | 'success' | 'info'; title: string; detail: string }[] = []
+    const criticalStock = lowStockItems[0]
+
+    if (criticalStock) {
+      alerts.push({
+        tone: criticalStock.quantityOnHand <= 0 ? 'danger' : 'warning',
+        title: `Low stock on ${criticalStock.productName}`,
+        detail:
+          criticalStock.quantityOnHand <= 0
+            ? 'Out of stock. Prioritize receiving or adjustment.'
+            : `${criticalStock.quantityOnHand} ${criticalStock.sku ? `left for ${criticalStock.sku}` : 'left'}.`,
+      })
+    }
+
+    if (topProductToday) {
+      alerts.push({
+        tone: 'success',
+        title: `${topProductToday.productName} is moving fast today`,
+        detail: `${topProductToday.quantity} sold / ${formatCurrency(topProductToday.sales)} sales.`,
+      })
+    }
+
+    if (pendingActionRequests > 0) {
+      alerts.push({
+        tone: 'warning',
+        title: `${pendingActionRequests} owner approval${pendingActionRequests === 1 ? '' : 's'} pending`,
+        detail: 'Review requests before closing daily operations.',
+      })
+    }
+
+    if (alerts.length === 0) {
+      alerts.push({
+        tone: 'info',
+        title: 'Operations look steady',
+        detail: 'No urgent low-stock, approval, or sales spike alerts right now.',
+      })
+    }
+
+    return alerts.slice(0, 3)
+  }, [lowStockItems, pendingActionRequests, topProductToday])
+
   const chartData = useMemo(() => {
     if (!dateRange.from || !dateRange.to) {
       return []
@@ -141,6 +273,34 @@ export function DashboardPage() {
   }, [dateRange.from, dateRange.to, sales.data])
 
   const chartMax = Math.max(...chartData.map((item) => item.total), 1)
+  const sparklinePoints = useMemo(() => {
+    const width = 320
+    const height = 120
+    const padding = 16
+    const usableWidth = width - padding * 2
+    const usableHeight = height - padding * 2
+
+    return chartData.map((item, index) => {
+      const x =
+        chartData.length === 1
+          ? width / 2
+          : padding + (index / (chartData.length - 1)) * usableWidth
+      const y = height - padding - (item.total / chartMax) * usableHeight
+
+      return {
+        ...item,
+        x,
+        y,
+      }
+    })
+  }, [chartData, chartMax])
+  const sparklinePath = sparklinePoints
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+    .join(' ')
+  const sparklineAreaPath =
+    sparklinePoints.length > 0
+      ? `${sparklinePath} L ${sparklinePoints[sparklinePoints.length - 1].x.toFixed(1)} 104 L ${sparklinePoints[0].x.toFixed(1)} 104 Z`
+      : ''
   const completedSalesInRange = sales.data.filter((sale) => {
     if (sale.status !== 'Completed' || !dateRange.from || !dateRange.to) {
       return false
@@ -228,13 +388,30 @@ export function DashboardPage() {
         hasData
       />
 
+      <section className={isSuperAdmin ? 'panel smart-alert-panel owner-alert-panel' : 'panel smart-alert-panel cashier-alert-panel'}>
+        <div className="split-line">
+          <h4>Smart Alerts</h4>
+          <span className="badge">{isSuperAdmin ? 'Owner Signals' : 'Today Signals'}</span>
+        </div>
+        <div className="smart-alert-grid">
+          {smartAlerts.map((alert) => (
+            <div className={`smart-alert-card ${alert.tone}`} key={alert.title}>
+              <span>{alert.tone === 'danger' ? 'Critical' : alert.tone === 'warning' ? 'Watch' : alert.tone === 'success' ? 'Hot' : 'Info'}</span>
+              <strong>{alert.title}</strong>
+              <p>{alert.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <div className="two-column dashboard-main-grid">
         {isSuperAdmin ? (
-          <section className="panel stack-form">
-            <div className="split-line">
-              <h4>Sales Trend</h4>
-              <span className="badge">{completedSalesInRange.length} completed sales</span>
-            </div>
+          <>
+            <section className="panel stack-form owner-analytics-panel">
+              <div className="split-line">
+                <h4>Sales Trend</h4>
+                <span className="badge">{completedSalesInRange.length} completed sales</span>
+              </div>
 
             <div className="trend-toolbar">
               {pendingActionRequests > 0 ? (
@@ -317,26 +494,109 @@ export function DashboardPage() {
                 Choose a valid date range to render daily sales totals.
               </div>
             ) : (
-              <div className="sales-trend-list">
-                {chartData.map((item) => (
-                  <div key={item.label} className="sales-trend-row">
-                    <div className="sales-trend-meta">
-                      <span>{new Date(`${item.label}T00:00:00`).toLocaleDateString()}</span>
-                      <strong>{formatCurrency(item.total)}</strong>
+              <>
+                <div className="mini-sales-chart">
+                  <div className="mini-sales-chart-head">
+                    <div>
+                      <span>Sales Momentum</span>
+                      <strong>{formatCurrency(chartMax)} peak day</strong>
                     </div>
-                    <div className="chart-track">
-                      <div
-                        className={`chart-fill ${item.total === 0 ? 'cool' : 'warm'}`}
-                        style={{ width: `${(item.total / chartMax) * 100}%` }}
-                      />
-                    </div>
+                    <span className="badge">{chartData.length} day trend</span>
                   </div>
-                ))}
-              </div>
+                  <svg
+                    className="sales-sparkline"
+                    role="img"
+                    aria-label="Sales trend line chart"
+                    viewBox="0 0 320 120"
+                    preserveAspectRatio="none"
+                  >
+                    <path className="sparkline-grid" d="M 16 32 H 304 M 16 60 H 304 M 16 88 H 304" />
+                    {sparklineAreaPath ? <path className="sparkline-area" d={sparklineAreaPath} /> : null}
+                    {sparklinePath ? <path className="sparkline-line" d={sparklinePath} /> : null}
+                    {sparklinePoints.map((point) => (
+                      <circle
+                        key={point.label}
+                        className={point.total === chartMax ? 'sparkline-dot peak' : 'sparkline-dot'}
+                        cx={point.x}
+                        cy={point.y}
+                        r={point.total === chartMax ? 4.8 : 3.6}
+                      />
+                    ))}
+                  </svg>
+                </div>
+
+                <div className="sales-trend-list">
+                  {chartData.map((item) => (
+                    <div key={item.label} className="sales-trend-row">
+                      <div className="sales-trend-meta">
+                        <span>{new Date(`${item.label}T00:00:00`).toLocaleDateString()}</span>
+                        <strong>{formatCurrency(item.total)}</strong>
+                      </div>
+                      <div className="chart-track">
+                        <div
+                          className={`chart-fill ${item.total === 0 ? 'cool' : 'warm'}`}
+                          style={{ width: `${(item.total / chartMax) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
-          </section>
+            </section>
+
+            <section className="panel stack-form insights-panel">
+              <div className="split-line">
+                <h4>Insights</h4>
+                <span className="badge">This Week</span>
+              </div>
+              <div className="insight-grid">
+                <div className="insight-card highlight">
+                  <span>Top Product This Week</span>
+                  <strong>{topProductThisWeek?.productName ?? 'No completed sales yet'}</strong>
+                  <p>
+                    {topProductThisWeek
+                      ? `${topProductThisWeek.quantity} sold / ${formatCurrency(topProductThisWeek.sales)} sales.`
+                      : 'Complete sales will appear here automatically.'}
+                  </p>
+                </div>
+                <div className="insight-card">
+                  <span>Slow-Moving Items</span>
+                  <strong>{slowMovingItems.length}</strong>
+                  <p>
+                    {slowMovingItems.length > 0
+                      ? `${slowMovingItems[0].productName} has ${slowMovingItems[0].quantityOnHand} on hand with no sales this week.`
+                      : 'No slow-moving inventory detected from the current sample.'}
+                  </p>
+                </div>
+                <div className="insight-card">
+                  <span>Inventory Risk</span>
+                  <strong>{lowStockAlertCount}</strong>
+                  <p>
+                    {lowStockAlertCount > 0
+                      ? 'Low or out-of-stock items need review before peak selling hours.'
+                      : 'Stock levels are currently stable.'}
+                  </p>
+                </div>
+              </div>
+
+              {slowMovingItems.length > 0 ? (
+                <div className="slow-moving-list">
+                  {slowMovingItems.map((item) => (
+                    <div className="slow-moving-row" key={item.productId}>
+                      <div>
+                        <strong>{item.productName}</strong>
+                        <span>{item.sku} / {item.location || 'Main rack'}</span>
+                      </div>
+                      <span className="status-badge low">{item.quantityOnHand} on hand</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          </>
         ) : (
-          <section className="panel stack-form">
+          <section className="panel stack-form cashier-focus-panel">
             <div className="split-line">
               <h4>Today Focus</h4>
               <span className="badge">Staff View</span>
